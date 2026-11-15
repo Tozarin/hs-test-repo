@@ -39,16 +39,16 @@ replaceVar varName replacement expression = case expression of
 evaluate :: Term -> Term
 evaluate term =
     case term of
-    BinaryTerm op lhv rhg ->
-        let lhv = evaluate lhv in
-        let rhv = evaluate rhv in
+    BinaryTerm op lhv rhv ->
+        let lhv' = evaluate lhv in
+        let rhv' = evaluate rhv in
         let binop :: BinaryOp -> Int -> Int -> Int
             binop op = case op of
                 Plus -> (+)
                 Minus -> (-)
                 Times -> (*)
         in
-        case (lhv, rhv) of
+        case (lhv', rhv') of
         (IntConstant l, IntConstant r) -> IntConstant $ binop op l r
-        otherwise -> BinaryTerm op lhv rhv
+        otherwise -> BinaryTerm op lhv' rhv'
     otherwise -> term
