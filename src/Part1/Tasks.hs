@@ -26,22 +26,29 @@ tay shift n x =
 taySin :: Integer -> Double -> Double
 taySin = tay $ (+) 1
 
+toPiPi :: Double -> Double
+toPiPi x =
+    let piPiCount = fromIntegral $ round (x / (2 * pi)) in
+    x - 2 * pi * piPiCount
+
 -- синус числа (формула Тейлора)
 mySin :: Double -> Double
-mySin = taySin 7
+mySin x = taySin 7 $ toPiPi x
 
 tayCos :: Integer -> Double -> Double
 tayCos = tay id
 
 -- косинус числа (формула Тейлора)
 myCos :: Double -> Double
-myCos = tayCos 7
+myCos x = tayCos 7 $ toPiPi x
 
 -- наибольший общий делитель двух чисел
 myGCD :: Integer -> Integer -> Integer
-myGCD 0 y = y
-myGCD x 0 = x
-myGCD x y = if x > y then myGCD y (x `mod` y) else myGCD x (y `mod` x)
+myGCD 0 y = abs y
+myGCD x 0 = abs x
+myGCD x y =
+    let (xm, ym) = (abs x, abs y) in
+    if xm > ym then myGCD ym (xm `mod` ym) else myGCD xm (ym `mod` xm)
 
 -- является ли дата корректной с учётом количества дней в месяце и
 -- вискокосных годов?
