@@ -8,7 +8,10 @@ finc f n = map f [n ..]
 
 -- Функция ff принимает на вход функцию f и элемент x и возвращает список [x, f(x), f(f(x)), f(f(f(x))) ...]
 ff :: (a -> a) -> a -> [a]
-ff f x = iterate f x
+ff f x =
+    let applyN f acc 0 = acc
+        applyN f acc n = applyN f (f acc) (n - 1) in
+    map (applyN f x) [0 .. ]
 
 updateAt :: (Int -> Int) -> Int -> [Int] -> [Int]
 updateAt f i ns =
