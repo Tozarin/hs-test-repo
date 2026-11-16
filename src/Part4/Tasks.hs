@@ -1,4 +1,3 @@
-{-# LANGUAGE InstanceSigs #-}
 module Part4.Tasks where
 
 import Util(notImplementedYet)

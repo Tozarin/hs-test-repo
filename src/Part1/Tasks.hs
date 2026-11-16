@@ -1,7 +1,6 @@
 module Part1.Tasks where
 
 import Util(notImplementedYet)
-import GHC.Base (VecElem(Int16ElemRep))
 
 fac :: Integer -> Integer
 fac 0 = 1
