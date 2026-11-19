@@ -1,5 +1,6 @@
 module Part7.Parser where
-import Control.Applicative (Alternative(..))
+
+import Control.Applicative (Alternative (..))
 import Util (notImplementedYet)
 
 {-
@@ -10,46 +11,82 @@ import Util (notImplementedYet)
 newtype Parser a = Parser {runParser :: String -> Either String (String, a)}
 
 instance Functor Parser where
-  fmap  = notImplementedYet
+  fmap f p = Parser $ \s -> case runParser p s of
+    Left e -> Left e
+    Right (s, v) -> Right (s, f v)
 
 instance Applicative Parser where
-  pure = notImplementedYet
-  (<*>) = notImplementedYet
+  pure v = Parser $ \s -> Right (s, v)
+
+  (<*>) f p = Parser $ \s -> case runParser f s of
+    Left e -> Left e
+    Right (s, f) -> case runParser p s of
+      Left e -> Left e
+      Right (s, v) -> Right (s, f v)
 
 instance Alternative Parser where
-  (<|>) = notImplementedYet
-  empty = notImplementedYet
+  (<|>) l r = Parser $ \s -> case runParser l s of
+    Left _ -> runParser r s
+    Right v -> Right v
+
+  empty = Parser $ \s -> Left "empty parser"
 
 instance Monad Parser where
-  (>>=) = notImplementedYet
+  (>>=) p f = Parser $ \s -> case runParser p s of
+    Left e -> Left e
+    Right (s, v) ->
+      let (Parser p) = f v
+       in p s
 
 instance MonadFail Parser where
-  fail = notImplementedYet
+  fail e = Parser $ \s -> Left e
+
+unexpectedEndFail = Left "unexpected end of string"
 
 -- | Проверяет что входная строка закончилась, иначе - ошибка
 eofP :: Parser ()
-eofP = notImplementedYet
+eofP = Parser $ \s -> case s of
+  [] -> Right ([], ())
+  _ -> Left "string is not empty"
 
 -- | Пытается прочитать заданный символ, если не получилось - ошибка
 charP :: Char -> Parser ()
-charP c = notImplementedYet
+charP c = Parser $ \s -> case s of
+  [] -> unexpectedEndFail
+  hd : tl | hd == c -> Right (tl, ())
+  _ -> Left $ '[' : c : ']' : " symbol expected here"
 
 -- | Пытается прочитать любой символ, если не получилось - ошибка
 anyCharP :: Parser Char
-anyCharP = notImplementedYet
+anyCharP = Parser $ \s -> case s of
+  [] -> unexpectedEndFail
+  hd : tl -> Right (tl, hd)
 
 -- | Пытается прочитать заданную строку, если не получилось - ошибка
 stringP :: String -> Parser ()
-stringP s = notImplementedYet
+stringP pattern =
+  let cut l r = case (l, r) of
+        ([], l) -> Right (l, ())
+        (_, []) -> unexpectedEndFail
+        (lhd : ltl, rhd : rtl) | lhd == rhd -> cut ltl rtl
+        _ -> Left $ "can not parse: " ++ pattern
+   in Parser $ \s -> cut pattern s
 
 -- | Парсит 0 и больше раз `p` разделенный `sepP`.
 sepBy :: Parser a -> Parser b -> Parser [a]
-sepBy p sepP = notImplementedYet
+sepBy p sepP = sepBy1 p sepP <|> return []
 
 -- | Парсит 1 и больше раз `p` разделенный `sepP`.
 sepBy1 :: Parser a -> Parser b -> Parser [a]
-sepBy1 p sepP = notImplementedYet
+sepBy1 p sepP = Parser $ \s -> case runParser p s of
+  Left e -> Left e
+  Right (s, v) ->
+    let helper (vs, s) = case runParser (sepP *> p) s of
+          Left _ -> (vs, s)
+          Right (s, v) -> helper (v : vs, s)
+     in let (vs, s) = helper ([v], s)
+         in Right (s, reverse vs)
 
 -- | Парсит p, если не получилось возвращает дефолтное значение
 optional :: a -> Parser a -> Parser a
-optional def p = notImplementedYet
+optional def p = p <|> return def
