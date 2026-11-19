@@ -2,6 +2,7 @@ module Part7.Tests where
 
 import Control.Applicative (Alternative (..))
 import Control.Monad (Monad (..))
+import Part7.Lang
 import Part7.Parser
 import Test.Tasty.HUnit
 
@@ -20,7 +21,7 @@ unit_parser_functor_id = do
   where
     s = "some string"
     compare p =
-      run s (fmap id p) @?= run s p |> applyE id
+      run s (fmap Prelude.id p) @?= run s p |> applyE Prelude.id
 
 -- fmap (f . g) == fmap g . fmap f
 unit_parser_functor_compose = do
@@ -38,7 +39,7 @@ unit_parser_applicative_id = do
   compare $ stringP s
   where
     s = "some string"
-    compare p = pure id <*> p |> run s @?= run s p
+    compare p = pure Prelude.id <*> p |> run s @?= run s p
 
 -- pure f <*> pure x == pure (f x)
 unit_parser_applicative_homo = do
@@ -147,3 +148,53 @@ unit_parser_optional = do
     c = 'b'
     n = 'a'
     p = anyCharP
+
+v n = n |> Id |> Variable
+
+unit_parser_lambda_keywords = do
+  parse "\\x -> x" @?= Right p
+  parse "fun x => x" @?= Right p
+  parse "lambda x . x" @?= Right p
+  parse "Λ x arrow x" @?= Right p
+  where
+    p = Programm [Expr $ Abstraction (Id "x") (v "x")]
+
+unit_parser_application = do
+  parse "f x" @?= Right (p $ Application (v "f") (v "x"))
+  parse "f x y" @?= Right (p $ Application (Application (v "f") (v "x")) (v "y"))
+  parse "f (x y)" @?= Right (p $ Application (v "f") (Application (v "x") (v "y")))
+  parse "(\\x -> x) y" @?= Right (p $ Application (Abstraction (Id "x") (v "x")) (v "y"))
+  where
+    p t = Programm [Expr t]
+
+unit_parser_binding = do
+  parse "let id = \\x -> x" @?= Right (p $ Binding (Id "id") (Abstraction (Id "x") (v "x")))
+  parse "let k := fun a -> fun b -> a" @?= Right (p $ Binding (Id "k") k)
+  where
+    p i = Programm [i]
+    k = Abstraction (Id "a") (Abstraction (Id "b") (v "a"))
+
+unit_parser_keyword_prefixes = do
+  parse "letter x" @?= Right (p $ Application (v "letter") (v "x"))
+  parse "function" @?= Right (p $ v "function")
+  where
+    p t = Programm [Expr t]
+
+unit_parser_multiline = do
+  parse "\n let id = \\x -> x   \n\n  \nid y \n" @?= Right p
+  where
+    p =
+      Programm
+        [ Binding (Id "id") (Abstraction (Id "x") (v "x")),
+          Expr (Application (v "id") (v "y"))
+        ]
+
+unit_parser_errors = do
+  isLeft (parse "")
+  isLeft (parse "let = x")
+  isLeft (parse "(x")
+  isLeft (parse "\\x -> ")
+  isLeft (parse "function -> x")
+  where
+    isLeft (Left _) = True @?= True
+    isLeft _ = False @?= True
