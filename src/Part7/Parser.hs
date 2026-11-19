@@ -43,18 +43,24 @@ instance MonadFail Parser where
 
 unexpectedEndFail = Left "unexpected end of string"
 
+stringIsNotEmptyFail = Left "string is not empty"
+
+expectedSybolCFail c = Left $ '[' : c : ']' : " symbol expected here"
+
+canNotParsePatternFail pattern = Left $ "can not parse: " ++ pattern
+
 -- | Проверяет что входная строка закончилась, иначе - ошибка
 eofP :: Parser ()
 eofP = Parser $ \s -> case s of
   [] -> Right ([], ())
-  _ -> Left "string is not empty"
+  _ -> stringIsNotEmptyFail
 
 -- | Пытается прочитать заданный символ, если не получилось - ошибка
 charP :: Char -> Parser ()
 charP c = Parser $ \s -> case s of
   [] -> unexpectedEndFail
   hd : tl | hd == c -> Right (tl, ())
-  _ -> Left $ '[' : c : ']' : " symbol expected here"
+  _ -> expectedSybolCFail c
 
 -- | Пытается прочитать любой символ, если не получилось - ошибка
 anyCharP :: Parser Char
@@ -69,7 +75,7 @@ stringP pattern =
         ([], l) -> Right (l, ())
         (_, []) -> unexpectedEndFail
         (lhd : ltl, rhd : rtl) | lhd == rhd -> cut ltl rtl
-        _ -> Left $ "can not parse: " ++ pattern
+        _ -> canNotParsePatternFail pattern
    in Parser $ \s -> cut pattern s
 
 -- | Парсит 0 и больше раз `p` разделенный `sepP`.
@@ -84,8 +90,8 @@ sepBy1 p sepP = Parser $ \s -> case runParser p s of
     let helper (vs, s) = case runParser (sepP *> p) s of
           Left _ -> (vs, s)
           Right (s, v) -> helper (v : vs, s)
-     in let (vs, s) = helper ([v], s)
-         in Right (s, reverse vs)
+     in let (vs, tl) = helper ([v], s)
+         in Right (tl, reverse vs)
 
 -- | Парсит p, если не получилось возвращает дефолтное значение
 optional :: a -> Parser a -> Parser a

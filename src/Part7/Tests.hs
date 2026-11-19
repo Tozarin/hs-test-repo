@@ -16,6 +16,7 @@ applyE :: (t -> b) -> Either String (String, t) -> Either String (String, b)
 applyE _ (Left e) = Left e
 applyE f (Right (s, v)) = Right (s, f v)
 
+-- fmap id == id
 unit_parser_functor_id = do
   compare $ return "x"
   compare $ charP 'Y'
@@ -25,6 +26,7 @@ unit_parser_functor_id = do
     compare p =
       run s (fmap id p) @?= run s p |> applyE id
 
+-- fmap (f . g) == fmap g . fmap f
 unit_parser_functor_compose = do
   fmap (f . g) p |> run s @?= fmap g p |> fmap f |> run s
   where
@@ -33,6 +35,7 @@ unit_parser_functor_compose = do
     f = (+) 1
     g = fromEnum
 
+-- pure id <*> x == x
 unit_parser_applicative_id = do
   compare $ return "x"
   compare $ charP 'Y'
@@ -41,6 +44,7 @@ unit_parser_applicative_id = do
     s = "some string"
     compare p = pure id <*> p |> run s @?= run s p
 
+-- pure f <*> pure x == pure (f x)
 unit_parser_applicative_homo = do
   pure f <*> pure x |> run s @?= pure (f x) |> run s
   where
@@ -48,6 +52,8 @@ unit_parser_applicative_homo = do
     x = 'a'
     f = fromEnum
 
+-- empty <|> x == x
+-- x <|> empty == x
 unit_parser_alternative_idem = do
   empty <|> p |> run s @?= run s p
   p <|> empty |> run s @?= run s p
@@ -55,6 +61,7 @@ unit_parser_alternative_idem = do
     s = "some string"
     p = anyCharP
 
+-- pure f <*> (x <|> y) == (pure f <*> x) <|> (pure f <*> y)
 unit_parser_alternative_dist = do
   compare (pure f <*> (x <|> y)) ((pure f <*> x) <|> (pure f <*> y))
   where
@@ -64,6 +71,7 @@ unit_parser_alternative_dist = do
     f = fromEnum
     compare l r = run s l @?= run s r
 
+-- return x >>= f == f x
 unit_parser_monad_left_id = do
   (return x >>= f) |> run s @?= f x |> run s
   where
@@ -71,12 +79,14 @@ unit_parser_monad_left_id = do
     f = \c -> return $ fromEnum c
     x = 'a'
 
+-- x >>= return == x
 unit_parser_monad_right_id = do
   (p >>= return) |> run s @?= run s p
   where
     s = "some string"
     p = anyCharP
 
+-- (x >>= f) >>= g == x >>= \x -> f x >>= g
 unit_parser_monad_ass = do
   ((p >>= f) >>= g) |> run s @?= (p >>= (\x -> f x >>= g)) |> run s
   where
@@ -84,3 +94,60 @@ unit_parser_monad_ass = do
     p = anyCharP
     f = \s -> return $ fromEnum s
     g = \c -> return $ c + 1
+
+unit_parser_eof = do
+  run "" eofP @?= Right ([], ())
+  run "empty" eofP @?= stringIsNotEmptyFail
+
+unit_parser_charp = do
+  charP c |> run "" @?= unexpectedEndFail
+  charP c |> run (c : tl) @?= Right (tl, ())
+  charP c |> run "cba" @?= expectedSybolCFail c
+  where
+    c = 'a'
+    tl = "bc"
+
+unit_parser_anycharp = do
+  run "" anyCharP @?= unexpectedEndFail
+  run (hd : tl) anyCharP @?= Right (tl, hd)
+  where
+    hd = 'a'
+    tl = "bc"
+
+unit_parser_stringp = do
+  stringP pattern |> run "" @?= unexpectedEndFail
+  stringP pattern |> run (pattern ++ tl) @?= Right (tl, ())
+  stringP pattern |> run tl @?= canNotParsePatternFail pattern
+  where
+    pattern = "abc"
+    tl = "def"
+
+unit_parser_sepby = do
+  sepBy p sepP |> run "" @?= Right ("", [])
+  sepBy p sepP |> run bs @?= Right (bs, [])
+  sepBy p sepP |> run "a" @?= Right ("", [()])
+  sepBy p sepP |> run "a,a,a,a" @?= Right ("", replicate 4 ())
+  sepBy p sepP |> run "a,a,a," @?= Right (",", replicate 3 ())
+  where
+    bs = "b,b,b,b"
+    p = charP 'a'
+    sepP = charP ','
+
+unit_parser_sepby1 = do
+  sepBy1 p sepP |> run "" @?= unexpectedEndFail
+  sepBy1 p sepP |> run bs @?= expectedSybolCFail 'a'
+  sepBy1 p sepP |> run "a" @?= Right ("", [()])
+  sepBy1 p sepP |> run "a,a,a,a" @?= Right ("", replicate 4 ())
+  sepBy1 p sepP |> run "a,a,a," @?= Right (",", replicate 3 ())
+  where
+    bs = "b,b,b,b"
+    p = charP 'a'
+    sepP = charP ','
+
+unit_parser_optional = do
+  optional n p |> run "" @?= Right ("", n)
+  optional n p |> run [c] @?= Right ("", c)
+  where
+    c = 'b'
+    n = 'a'
+    p = anyCharP
