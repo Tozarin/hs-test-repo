@@ -47,6 +47,8 @@ stringIsNotEmptyFail = Left "string is not empty"
 
 expectedSybolCFail c = Left $ '[' : c : ']' : " symbol expected here"
 
+expectCharByPredicateFail = Left "expected char that satisfies predicate"
+
 canNotParsePatternFail pattern = Left $ "can not parse: " ++ pattern
 
 -- | Проверяет что входная строка закончилась, иначе - ошибка
@@ -96,3 +98,25 @@ sepBy1 p sepP = Parser $ \s -> case runParser p s of
 -- | Парсит p, если не получилось возвращает дефолтное значение
 optional :: a -> Parser a -> Parser a
 optional def p = p <|> return def
+
+parseAlts :: [Parser a] -> Parser a
+parseAlts ps = foldl (<|>) empty ps
+
+manyP :: Parser a -> Parser [a]
+manyP p = sepBy p $ return []
+
+manyP1 :: Parser a -> Parser [a]
+manyP1 p = sepBy1 p $ return []
+
+groupP :: [String] -> Parser ()
+groupP kws = parseAlts $ map stringP kws
+
+charPP :: (Char -> Bool) -> Parser Char
+charPP f = Parser $ \s -> case s of
+  [] -> unexpectedEndFail
+  hd : tl | f hd -> Right (tl, hd)
+  _ -> expectCharByPredicateFail
+
+(|>) v f = f v
+
+infixl 2 |>

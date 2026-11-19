@@ -5,10 +5,6 @@ import Control.Monad (Monad (..))
 import Part7.Parser
 import Test.Tasty.HUnit
 
-(|>) v f = f v
-
-infixl 2 |>
-
 run :: String -> Parser a -> Either String (String, a)
 run s p = runParser p s
 
